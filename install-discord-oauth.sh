@@ -17,8 +17,27 @@ fi
 
 if [[ -z "${DISCORD_CLIENT_SECRET:-}" ]]; then
   # Reuse the secret already stored on the VPS from the earlier OAuth setup.
-  DISCORD_CLIENT_SECRET="$(grep -m1 '^DISCORD_CLIENT_SECRET=' "$PANEL_DIR/.env" | cut -d= -f2- || true)"
-  DISCORD_CLIENT_SECRET="${DISCORD_CLIENT_SECRET%
+  DISCORD_CLIENT_SECRET="$(python3 - <<'PY'
+from pathlib import Path
+
+env = Path("/var/www/pterodactyl/.env")
+value = ""
+for line in env.read_text().splitlines():
+    if line.startswith("DISCORD_CLIENT_SECRET="):
+        value = line.split("=", 1)[1].strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+            value = value[1:-1]
+        break
+print(value)
+PY
+)"
+fi
+
+if [[ -z "${DISCORD_CLIENT_SECRET:-}" ]]; then
+  echo "ERROR: No Discord client secret was found in the existing Pterodactyl .env."
+  exit 1
+fi
+
 cd "$PANEL_DIR"
 
 STAMP="$(date -u +%Y%m%d-%H%M%S)"
